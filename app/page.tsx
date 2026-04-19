@@ -10,6 +10,7 @@ export default function Home() {
     { id: 'bilan', label: '📊 Bilan' },
     { id: 'abonnements', label: '🎫 Abonnements' },
     { id: 'emploi', label: '📅 Emploi du Temps' },
+    { id: 'reinit', label: '🔄 Réinitialisation' },
   ]
   return (
     <div className="min-h-screen bg-gray-100">
@@ -42,6 +43,7 @@ export default function Home() {
         {menu === 'bilan' && <PageBilan />}
         {menu === 'abonnements' && <PageAbonnements />}
         {menu === 'emploi' && <PageEmploi />}
+        {menu === 'reinit' && <PageReinit />}
       </main>
     </div>
   )
@@ -418,14 +420,11 @@ function PageEmploi() {
   const [onglet, setOnglet] = useState<'consultation'|'saisie'>('consultation')
   const JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
   const CRENEAUX = ['07H-08H','08H-09H','09H-10H','10H-11H','11H-12H','12H-13H','13H-14H','14H-15H','15H-16H','16H-17H','17H-18H']
-
-  // CONSULTATION
   const [matricule, setMatricule] = useState('')
   const [eleve, setEleve] = useState<any>(null)
   const [loadingEleve, setLoadingEleve] = useState(false)
   const [emploiClasse, setEmploiClasse] = useState<any[]>([])
   const [messageConsult, setMessageConsult] = useState('')
-
   const chercherEleve = async () => {
     if (!matricule.trim()) return
     setLoadingEleve(true); setEleve(null); setEmploiClasse([]); setMessageConsult('')
@@ -442,22 +441,18 @@ function PageEmploi() {
     } catch { setMessageConsult('❌ Erreur de connexion') }
     setLoadingEleve(false)
   }
-
   const getMatiere = (jour: string, creneau: string) => {
     const [debut, fin] = creneau.split('-')
     const h = (t: string) => t.replace('H','')
     const row = emploiClasse.find(r => r.jour === jour && r.heure_debut === h(debut) && r.heure_fin === h(fin))
     return row?.matiere || ''
   }
-
-  // SAISIE ADMIN
   const [classesSaisie, setClassesSaisie] = useState<string[]>([])
   const [classeChoisie, setClasseChoisie] = useState('')
   const [jourChoisi, setJourChoisi] = useState('Lundi')
   const [creneauxSaisie, setCreneauxSaisie] = useState<{[k:string]:string}>({})
   const [messageSaisie, setMessageSaisie] = useState('')
   const [loadingSaisie, setLoadingSaisie] = useState(false)
-
   useEffect(() => {
     const chargerClasses = async () => {
       try {
@@ -470,7 +465,6 @@ function PageEmploi() {
     }
     chargerClasses()
   }, [])
-
   useEffect(() => {
     if (!classeChoisie) return
     const chargerEDT = async () => {
@@ -482,7 +476,6 @@ function PageEmploi() {
     }
     chargerEDT()
   }, [classeChoisie, jourChoisi])
-
   const enregistrerEDT = async () => {
     if (!classeChoisie) return
     setLoadingSaisie(true); setMessageSaisie('')
@@ -496,7 +489,6 @@ function PageEmploi() {
     if (lignes.length > 0) await supabase.from('emploi_temps').insert(lignes)
     setMessageSaisie('✅ Emploi du temps enregistré !'); setLoadingSaisie(false)
   }
-
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl shadow p-2 flex gap-2">
@@ -509,7 +501,6 @@ function PageEmploi() {
           ✏️ Saisie / Administration
         </button>
       </div>
-
       {onglet === 'consultation' && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow p-4">
@@ -526,7 +517,6 @@ function PageEmploi() {
             </div>
             {messageConsult && <p className="text-center font-medium py-2 mt-2">{messageConsult}</p>}
           </div>
-
           {eleve && (
             <div className="bg-white rounded-xl shadow p-4">
               <div className="flex items-center gap-3 mb-4 pb-3 border-b">
@@ -573,7 +563,6 @@ function PageEmploi() {
           )}
         </div>
       )}
-
       {onglet === 'saisie' && (
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-bold text-red-700 mb-4">✏️ Saisie de l'Emploi du Temps</h2>
@@ -617,6 +606,104 @@ function PageEmploi() {
             })}
           </div>
           {messageSaisie && <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-center font-medium text-green-700">{messageSaisie}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PageReinit() {
+  const [etape, setEtape] = useState<'accueil'|'confirmer'|'done'>('accueil')
+  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState({ presences: 0, abonnements: 0, emplois: 0 })
+  const [options, setOptions] = useState({ presences: true, abonnements: true, emplois: false })
+
+  useEffect(() => {
+    const charger = async () => {
+      const { supabase } = await import('../lib/supabase')
+      const { count: c1 } = await supabase.from('presences').select('*', { count: 'exact', head: true })
+      const { count: c2 } = await supabase.from('abonnements').select('*', { count: 'exact', head: true })
+      const { count: c3 } = await supabase.from('emploi_temps').select('*', { count: 'exact', head: true })
+      setStats({ presences: c1 || 0, abonnements: c2 || 0, emplois: c3 || 0 })
+    }
+    charger()
+  }, [])
+
+  const executer = async () => {
+    setLoading(true)
+    const { supabase } = await import('../lib/supabase')
+    if (options.presences) await supabase.from('presences').delete().neq('id', 0)
+    if (options.abonnements) await supabase.from('abonnements').delete().neq('id', 0)
+    if (options.emplois) await supabase.from('emploi_temps').delete().neq('id', 0)
+    setLoading(false)
+    setEtape('done')
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      {etape === 'accueil' && (
+        <div className="bg-white rounded-xl shadow p-6">
+          <h2 className="text-xl font-bold text-red-700 mb-2">🔄 Réinitialisation — Nouvelle Année</h2>
+          <p className="text-gray-500 mb-6">Préparez la salle informatique pour la nouvelle année scolaire en supprimant les données de l'année passée.</p>
+          <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+            <h3 className="font-semibold text-gray-700 mb-3">📊 Données actuelles :</h3>
+            {[
+              { key: 'presences', label: 'Présences / Inscriptions', count: stats.presences, icone: '📋', couleur: 'text-blue-600' },
+              { key: 'abonnements', label: 'Abonnements', count: stats.abonnements, icone: '🎫', couleur: 'text-purple-600' },
+              { key: 'emplois', label: 'Emplois du temps', count: stats.emplois, icone: '📅', couleur: 'text-orange-600' },
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" checked={options[item.key as keyof typeof options]}
+                    onChange={e => setOptions(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                    className="w-4 h-4 accent-red-600" />
+                  <span className="text-lg">{item.icone}</span>
+                  <span className="font-medium">{item.label}</span>
+                </div>
+                <span className={`font-bold text-lg ${item.couleur}`}>{item.count} entrées</span>
+              </div>
+            ))}
+          </div>
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 mb-6">
+            <p className="text-yellow-800 font-medium">⚠️ Attention : Cette action est irréversible. Les données supprimées ne pourront pas être récupérées.</p>
+          </div>
+          <button onClick={() => setEtape('confirmer')}
+            disabled={!options.presences && !options.abonnements && !options.emplois}
+            className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-red-700 disabled:opacity-50">
+            🗑️ Procéder à la réinitialisation
+          </button>
+        </div>
+      )}
+
+      {etape === 'confirmer' && (
+        <div className="bg-white rounded-xl shadow p-6 text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-red-700 mb-2">Confirmation requise</h2>
+          <p className="text-gray-600 mb-2">Vous allez supprimer définitivement :</p>
+          <ul className="text-left bg-red-50 rounded-xl p-4 mb-6 space-y-1">
+            {options.presences && <li className="text-red-700 font-medium">✗ Toutes les présences ({stats.presences} entrées)</li>}
+            {options.abonnements && <li className="text-red-700 font-medium">✗ Tous les abonnements ({stats.abonnements} entrées)</li>}
+            {options.emplois && <li className="text-red-700 font-medium">✗ Tous les emplois du temps ({stats.emplois} entrées)</li>}
+          </ul>
+          <div className="flex gap-3">
+            <button onClick={() => setEtape('accueil')} className="flex-1 border-2 border-gray-300 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-50">
+              ← Annuler
+            </button>
+            <button onClick={executer} disabled={loading} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 disabled:opacity-50">
+              {loading ? '⏳ Suppression...' : '🗑️ CONFIRMER LA SUPPRESSION'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {etape === 'done' && (
+        <div className="bg-white rounded-xl shadow p-6 text-center">
+          <span className="text-6xl mb-4 block">✅</span>
+          <h2 className="text-xl font-bold text-green-600 mb-2">Remise à zéro effectuée !</h2>
+          <p className="text-gray-600 mb-6">La salle informatique est prête pour la nouvelle année scolaire.</p>
+          <button onClick={() => setEtape('accueil')} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700">
+            🏠 Retour
+          </button>
         </div>
       )}
     </div>
