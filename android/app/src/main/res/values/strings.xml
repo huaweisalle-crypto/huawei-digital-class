@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Huawei Digital Class</string>
+    <string name="title_activity_main">Huawei Digital Class</string>
+    <string name="package_name">com.huawei.digitalclass</string>
+    <string name="custom_url_scheme">com.huawei.digitalclass</string>
+</resources>

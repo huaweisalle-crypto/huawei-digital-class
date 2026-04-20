@@ -616,8 +616,7 @@ function PageReinit() {
   const [etape, setEtape] = useState<'accueil'|'confirmer'|'done'>('accueil')
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState({ presences: 0, abonnements: 0, emplois: 0 })
-  const [options, setOptions] = useState({ presences: true, abonnements: true, emplois: false })
-
+  const [options, setOptions] = useState({ presences: true, abonnements: true, emplois: true })
   useEffect(() => {
     const charger = async () => {
       const { supabase } = await import('../lib/supabase')
