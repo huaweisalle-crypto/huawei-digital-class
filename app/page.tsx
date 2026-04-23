@@ -617,8 +617,8 @@ function PageEmploi() {
           </div>
           <p className="text-sm text-gray-500 mb-3">Matières pour <strong>{classeChoisie}</strong> — <strong>{jourChoisi}</strong> :</p>
 
-          {/* 2 colonnes : Matin gauche / Après-midi droite */}
-          <div className="grid grid-cols-2 gap-6">
+          {/* Responsive : 1 colonne mobile / 2 colonnes PC */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <p className="text-xs font-bold text-blue-600 mb-2">🌅 Matin (07H - 13H)</p>
               {CRENEAUX_MATIN.map(c => renderInput(c))}
