@@ -504,12 +504,12 @@ function PageEmploi() {
     const h = (t: string) => t.replace('H','')
     const key = `${h(debut)}-${h(fin)}`
     return (
-      <div key={creneau} className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-gray-600 w-20 shrink-0">{creneau}</span>
+      <div key={creneau} className="flex items-center gap-1">
+        <span className="text-xs font-semibold text-gray-600 w-16 shrink-0">{creneau}</span>
         <input type="text" placeholder="Matière..."
           value={creneauxSaisie[key] || ''}
           onChange={e => setCreneauxSaisie(prev => ({ ...prev, [key]: e.target.value }))}
-          className="flex-1 border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-400 outline-none" />
+          className="flex-1 border border-gray-200 rounded px-1 py-1 text-xs focus:border-red-400 outline-none" />
       </div>
     )
   }
@@ -591,7 +591,7 @@ function PageEmploi() {
       )}
 
       {onglet === 'saisie' && (
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white rounded-xl shadow p-4">
           <h2 className="text-xl font-bold text-red-700 mb-4">✏️ Saisie de l'Emploi du Temps</h2>
           <div className="flex flex-wrap gap-4 mb-4">
             <div>
@@ -617,8 +617,7 @@ function PageEmploi() {
           </div>
           <p className="text-sm text-gray-500 mb-3">Matières pour <strong>{classeChoisie}</strong> — <strong>{jourChoisi}</strong> :</p>
 
-          {/* Responsive : 1 colonne mobile / 2 colonnes PC */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <p className="text-xs font-bold text-blue-600 mb-2">🌅 Matin (07H - 13H)</p>
               {CRENEAUX_MATIN.map(c => renderInput(c))}
