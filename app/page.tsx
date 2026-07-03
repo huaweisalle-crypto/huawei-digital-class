@@ -358,7 +358,7 @@ function PageAbonnements() {
     const { error } = await supabase.from('abonnements').insert({
       matricule: eleve.matricule, nom: eleve.nom, prenom: eleve.prenom,
       classe: eleve.classe, contact: eleve.telephone1 || '',
-      mois: moisActuel, annee: anneeActuelle, montant: 5000,
+      mois: moisActuel, annee: anneeActuelle, montant: 2000,
       date_paiement: new Date().toISOString().split('T')[0],
     })
     if (error) setMessage('❌ Erreur: ' + error.message)
@@ -367,7 +367,7 @@ function PageAbonnements() {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto">
-        <h2 className="text-xl font-bold text-red-700 mb-2">🎫 Abonnement Mensuel — 5 000 FCFA</h2>
+        <h2 className="text-xl font-bold text-red-700 mb-2">🎫 Abonnement Mensuel — 2 000 FCFA</h2>
         <p className="text-gray-500 mb-4">Mois : <strong>{moisActuel} {anneeActuelle}</strong></p>
         <div className="flex gap-2 mb-4">
           <input type="text" placeholder="Saisir le matricule..." value={matricule}
@@ -387,7 +387,7 @@ function PageAbonnements() {
               </div>
             </div>
             <button onClick={enregistrerAbonnement} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold">
-              ✅ Abonner — 5 000 FCFA
+              ✅ Abonner — 2 000 FCFA
             </button>
           </div>
         )}
@@ -395,7 +395,7 @@ function PageAbonnements() {
       </div>
       <div className="bg-white rounded-xl shadow p-6">
         <h3 className="font-bold text-lg mb-1 text-red-700">📋 Abonnés — {moisActuel} {anneeActuelle}</h3>
-        <p className="text-green-600 font-bold mb-3">Total : {abonnements.length * 5000} FCFA ({abonnements.length} abonnés)</p>
+        <p className="text-green-600 font-bold mb-3">Total : {abonnements.reduce((s: number, a: any) => s + (a.montant || 0), 0)} FCFA ({abonnements.length} abonnés)</p>
         {abonnements.length === 0 ? <p className="text-center text-gray-400 py-4">Aucun abonnement ce mois</p> : (
           <table className="w-full text-sm">
             <thead><tr className="bg-gray-50"><th className="px-3 py-2 text-left">Élève</th><th className="px-3 py-2 text-left">Classe</th><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Montant</th></tr></thead>
