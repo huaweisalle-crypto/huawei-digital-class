@@ -741,8 +741,9 @@ function PagePostes() {
 
   const charger = async () => {
     const { supabase } = await import('../lib/supabase')
-    const { data } = await supabase.from('postes').select('*').order('numero')
-    setPostes(data || [])
+    const { data } = await supabase.from('postes').select('*')
+    const trie = (data || []).sort((a: any, b: any) => parseInt(a.numero) - parseInt(b.numero))
+    setPostes(trie)
     setLoading(false)
   }
 
