@@ -106,19 +106,36 @@ function PageInscription() {
   const [nbHeures, setNbHeures] = useState(1)
   const [poste, setPoste] = useState('')
   const [message, setMessage] = useState('')
+  const [coursEnCours, setCoursEnCours] = useState<any>(null)
+  const [forcerMalgreCours, setForcerMalgreCours] = useState(false)
+
+  const verifierEmploiDuTemps = async (classe: string) => {
+    setCoursEnCours(null)
+    setForcerMalgreCours(false)
+    const { supabase } = await import('../lib/supabase')
+    const jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+    const jourActuel = jours[new Date().getDay()]
+    const heureActuelle = String(new Date().getHours()).padStart(2, '0')
+    const { data } = await supabase.from('emploi_temps').select('*')
+      .eq('classe', classe).eq('jour', jourActuel)
+      .lte('heure_debut', heureActuelle).gt('heure_fin', heureActuelle)
+    if (data && data.length > 0) setCoursEnCours(data[0])
+  }
+
   const chercherEleve = async () => {
     if (!matricule.trim()) return
-    setLoading(true); setEleve(null); setMessage('')
+    setLoading(true); setEleve(null); setMessage(''); setCoursEnCours(null); setForcerMalgreCours(false)
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_WEBSCHOOL_API}/api/eleves/recherche?q=${matricule}`)
       const data = await res.json()
-      if (data.length > 0) setEleve(data[0])
+      if (data.length > 0) { setEleve(data[0]); await verifierEmploiDuTemps(data[0].classe) }
       else setMessage('❌ Élève non trouvé')
     } catch { setMessage('❌ Erreur de connexion WebSchool') }
     setLoading(false)
   }
   const enregistrer = async () => {
     if (!eleve || !poste) { setMessage('⚠️ Remplissez tous les champs'); return }
+    if (coursEnCours && !forcerMalgreCours) { setMessage('⚠️ Confirmez que vous autorisez malgré le cours en cours'); return }
     const { supabase } = await import('../lib/supabase')
     const { error } = await supabase.from('presences').insert({
       matricule: eleve.matricule, nom: eleve.nom, prenom: eleve.prenom,
@@ -128,7 +145,7 @@ function PageInscription() {
       nb_heures: nbHeures, type_paiement: 'heure', montant: nbHeures * 100, poste,
     })
     if (error) setMessage('❌ Erreur: ' + error.message)
-    else { setMessage('✅ Inscription enregistrée !'); setMatricule(''); setEleve(null); setPoste('') }
+    else { setMessage('✅ Inscription enregistrée !'); setMatricule(''); setEleve(null); setPoste(''); setCoursEnCours(null); setForcerMalgreCours(false) }
   }
   return (
     <div className="max-w-2xl mx-auto">
@@ -153,6 +170,17 @@ function PageInscription() {
                 {eleve.telephone1 && <p className="text-gray-600">Contact : {eleve.telephone1}</p>}
               </div>
             </div>
+          </div>
+        )}
+        {coursEnCours && (
+          <div className="border-2 border-red-300 bg-red-50 rounded-xl p-4 mb-4">
+            <p className="font-bold text-red-700">⚠️ Cet élève a cours en ce moment</p>
+            <p className="text-red-600 text-sm">{coursEnCours.matiere} — {coursEnCours.heure_debut}H à {coursEnCours.heure_fin}H</p>
+            <label className="flex items-center gap-2 mt-3 text-sm font-medium text-gray-700">
+              <input type="checkbox" checked={forcerMalgreCours} onChange={e => setForcerMalgreCours(e.target.checked)}
+                className="w-4 h-4 accent-red-600" />
+              Autoriser quand même (justification vérifiée par l'admin)
+            </label>
           </div>
         )}
         {eleve && (
@@ -184,7 +212,8 @@ function PageInscription() {
                 <p className="text-3xl font-bold text-green-600">{nbHeures * 100} FCFA</p>
                 <p className="text-xs text-gray-500">{nbHeures}H × 100 FCFA</p>
               </div>
-              <button onClick={enregistrer} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-green-700 whitespace-nowrap">
+              <button onClick={enregistrer} disabled={!!coursEnCours && !forcerMalgreCours}
+                className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
                 ✅ Enregistrer
               </button>
             </div>
