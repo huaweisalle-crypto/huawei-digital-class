@@ -10,6 +10,7 @@ export default function Home() {
     { id: 'bilan', label: '📊 Bilan' },
     { id: 'abonnements', label: '🎫 Abonnements' },
     { id: 'emploi', label: '📅 Emploi du Temps' },
+    { id: 'postes', label: '🖥️ Postes' },
     { id: 'reinit', label: '🔄 Réinitialisation' },
   ]
   return (
@@ -43,6 +44,7 @@ export default function Home() {
         {menu === 'bilan' && <PageBilan />}
         {menu === 'abonnements' && <PageAbonnements />}
         {menu === 'emploi' && <PageEmploi />}
+        {menu === 'postes' && <PagePostes />}
         {menu === 'reinit' && <PageReinit />}
       </main>
     </div>
@@ -171,7 +173,7 @@ function PageInscription() {
               <select value={poste} onChange={e => setPoste(e.target.value)}
                 className="w-full border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none">
                 <option value="">-- Choisir un poste --</option>
-                {['208470','208471','208472','208473','208474','208475','208476','208477','208478','208479','208480','208481','208482','208483','208484','208485','208486','208487','208488','208489','208490','208491','208492','208493','208494','208495','208496','208497','208498','208499','2084100','2084101','2084102','2084103','2084104','2084105','2084106','2084107','2084108','2084109','2084110','2084111','2084112','2084113','2084114','2084115','2084116','2084117','2084118','2084119','2084120'].map(p => (
+                {['208470','208471','208472','208473','208474','208475','208476','208477','208478','208479','208480','208481','208482','208483','208484','208485','208486','208487','208488','208489','208490','208491','208492','208493','208494','208495','208496','208497','208498','208499','2084100','2084101','2084102','2084103','2084104','2084105','2084106','2084107','2084108','2084109'].map(p => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
@@ -727,6 +729,96 @@ function PageReinit() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function PagePostes() {
+  const [postes, setPostes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [messageTexte, setMessageTexte] = useState<{ [key: string]: string }>({})
+  const [feedback, setFeedback] = useState('')
+
+  const charger = async () => {
+    const { supabase } = await import('../lib/supabase')
+    const { data } = await supabase.from('postes').select('*').order('numero')
+    setPostes(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    charger()
+    const interval = setInterval(charger, 10000) // rafraîchit toutes les 10s
+    return () => clearInterval(interval)
+  }, [])
+
+  const envoyerCommande = async (poste: string, action: string, message?: string) => {
+    const { supabase } = await import('../lib/supabase')
+    const { error } = await supabase.from('commandes').insert({ poste, action, message: message || null })
+    if (error) { setFeedback('❌ Erreur: ' + error.message); return }
+    setFeedback(`✅ Commande "${action}" envoyée au poste ${poste}`)
+    setTimeout(() => setFeedback(''), 3000)
+  }
+
+  const estEnLigne = (p: any) => {
+    if (!p.derniere_vue) return false
+    const diffSec = (Date.now() - new Date(p.derniere_vue).getTime()) / 1000
+    return diffSec < 60 // considéré en ligne si vu il y a moins de 60s
+  }
+
+  if (loading) return <p className="text-center text-gray-400 py-8">Chargement des postes...</p>
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl shadow p-4 flex items-center justify-between">
+        <h2 className="text-xl font-bold text-red-700">🖥️ Contrôle des Postes ({postes.length})</h2>
+        <div className="flex gap-2">
+          <span className="text-sm text-gray-500">
+            🟢 {postes.filter(estEnLigne).length} en ligne · 🔴 {postes.filter(p => !estEnLigne(p)).length} hors ligne
+          </span>
+        </div>
+      </div>
+
+      {feedback && <div className="p-3 bg-gray-100 rounded-lg text-center font-medium">{feedback}</div>}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {postes.map(p => {
+          const enLigne = estEnLigne(p)
+          return (
+            <div key={p.numero} className="bg-white rounded-xl shadow p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-lg">Poste {p.numero}</span>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${enLigne ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {enLigne ? '🟢 En ligne' : '🔴 Hors ligne'}
+                </span>
+              </div>
+              {p.occupe_par && (
+                <p className="text-sm text-gray-600">👤 Occupé par : <strong>{p.occupe_par}</strong></p>
+              )}
+              {p.minutes_restantes != null && (
+                <p className="text-sm text-orange-600">⏱️ {p.minutes_restantes} min restantes</p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => envoyerCommande(p.numero, 'demarrer')}
+                  className="bg-green-600 text-white text-sm py-2 rounded-lg hover:bg-green-700">▶️ Démarrer</button>
+                <button onClick={() => envoyerCommande(p.numero, 'eteindre')}
+                  className="bg-gray-700 text-white text-sm py-2 rounded-lg hover:bg-gray-800">⏻ Éteindre</button>
+                <button onClick={() => envoyerCommande(p.numero, 'couper_wifi')}
+                  className="bg-red-600 text-white text-sm py-2 rounded-lg hover:bg-red-700">📶 Couper wifi</button>
+                <button onClick={() => envoyerCommande(p.numero, 'retablir_wifi')}
+                  className="bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700">📶 Rétablir wifi</button>
+              </div>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Message perso..." value={messageTexte[p.numero] || ''}
+                  onChange={e => setMessageTexte(prev => ({ ...prev, [p.numero]: e.target.value }))}
+                  className="flex-1 border rounded-lg px-2 py-1 text-sm" />
+                <button onClick={() => envoyerCommande(p.numero, 'message', messageTexte[p.numero] || 'Il vous reste 10 min de connexion')}
+                  className="bg-purple-600 text-white text-sm px-3 py-1 rounded-lg hover:bg-purple-700">💬 Envoyer</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
