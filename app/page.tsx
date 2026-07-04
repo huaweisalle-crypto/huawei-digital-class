@@ -110,10 +110,36 @@ function PageInscription() {
   const [forcerMalgreCours, setForcerMalgreCours] = useState(false)
   const [ecoute, setEcoute] = useState(false)
 
-  const rechercheVocale = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) { setMessage('⚠️ Recherche vocale non disponible sur cet appareil/navigateur'); return }
-    const recognition = new SpeechRecognition()
+  const rechercheVocale = async () => {
+    try {
+      const { Capacitor } = await import('@capacitor/core')
+      if (Capacitor.isNativePlatform()) {
+        // App Android/iOS empaquetée : on utilise le plugin natif (le micro du navigateur ne marche pas dans la WebView)
+        const { SpeechRecognition } = await import('@capacitor-community/speech-recognition')
+        const { available } = await SpeechRecognition.available()
+        if (!available) { setMessage('⚠️ Reconnaissance vocale non disponible sur cet appareil'); return }
+        const perm = await SpeechRecognition.requestPermissions()
+        if (perm.speechRecognition !== 'granted') { setMessage('⚠️ Permission micro refusée'); return }
+        setEcoute(true)
+        try {
+          const result: any = await SpeechRecognition.start({
+            language: 'fr-FR', maxResults: 1, prompt: 'Dites le matricule', partialResults: false, popup: false,
+          })
+          const texte = (result?.matches?.[0] || '').replace(/\s+/g, '').toUpperCase()
+          setEcoute(false)
+          if (texte) { setMatricule(texte); chercherEleve(texte) }
+          else setMessage('⚠️ Aucun matricule reconnu, réessayez')
+        } catch {
+          setEcoute(false); setMessage('⚠️ Erreur de reconnaissance vocale, réessayez')
+        }
+        return
+      }
+    } catch { /* @capacitor/core absent (ex: build web pur) → on tente le fallback navigateur ci-dessous */ }
+
+    // Fallback web (navigateur Chrome desktop/mobile) : l'API native du navigateur
+    const SpeechRecognitionWeb = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognitionWeb) { setMessage('⚠️ Recherche vocale non disponible sur cet appareil/navigateur'); return }
+    const recognition = new SpeechRecognitionWeb()
     recognition.lang = 'fr-FR'
     recognition.interimResults = false
     recognition.maxAlternatives = 1
