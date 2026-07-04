@@ -108,6 +108,26 @@ function PageInscription() {
   const [message, setMessage] = useState('')
   const [coursEnCours, setCoursEnCours] = useState<any>(null)
   const [forcerMalgreCours, setForcerMalgreCours] = useState(false)
+  const [ecoute, setEcoute] = useState(false)
+
+  const rechercheVocale = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) { setMessage('⚠️ Recherche vocale non disponible sur cet appareil/navigateur'); return }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'fr-FR'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    setEcoute(true)
+    recognition.start()
+    recognition.onresult = (event: any) => {
+      const texte = event.results[0][0].transcript.replace(/\s+/g, '').toUpperCase()
+      setMatricule(texte)
+      setEcoute(false)
+      setTimeout(() => chercherEleve(texte), 200)
+    }
+    recognition.onerror = () => { setEcoute(false); setMessage('⚠️ Erreur de reconnaissance vocale, réessayez') }
+    recognition.onend = () => setEcoute(false)
+  }
 
   const verifierEmploiDuTemps = async (classe: string) => {
     setCoursEnCours(null)
@@ -122,11 +142,12 @@ function PageInscription() {
     if (data && data.length > 0) setCoursEnCours(data[0])
   }
 
-  const chercherEleve = async () => {
-    if (!matricule.trim()) return
+  const chercherEleve = async (matriculeVocal?: string) => {
+    const valeur = matriculeVocal ?? matricule
+    if (!valeur.trim()) return
     setLoading(true); setEleve(null); setMessage(''); setCoursEnCours(null); setForcerMalgreCours(false)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_WEBSCHOOL_API}/api/eleves/recherche?q=${matricule}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_WEBSCHOOL_API}/api/eleves/recherche?q=${valeur}`)
       const data = await res.json()
       if (data.length > 0) { setEleve(data[0]); await verifierEmploiDuTemps(data[0].classe) }
       else setMessage('❌ Élève non trouvé')
@@ -157,11 +178,16 @@ function PageInscription() {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="text-xl font-bold text-red-700 mb-6">✍️ Inscription à la Salle</h2>
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <input type="text" placeholder="Saisir le matricule..." value={matricule}
             onChange={e => setMatricule(e.target.value)} onKeyDown={e => e.key === 'Enter' && chercherEleve()}
-            className="flex-1 border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
-          <button onClick={chercherEleve} disabled={loading} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50">
+            className="flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
+          <button onClick={rechercheVocale} disabled={ecoute}
+            className={`shrink-0 px-3 py-2 rounded-lg font-medium ${ecoute ? 'bg-purple-800 text-white animate-pulse' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
+            {ecoute ? '🎙️ Écoute...' : '🎙️'}
+          </button>
+          <button onClick={() => chercherEleve()} disabled={loading}
+            className="shrink-0 whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50">
             {loading ? '...' : '🔍 Chercher'}
           </button>
         </div>
@@ -178,10 +204,17 @@ function PageInscription() {
             </div>
           </div>
         )}
+        {eleve && !coursEnCours && (
+          <div className="border-2 border-green-300 bg-green-50 rounded-xl p-4 mb-4">
+            <p className="font-bold text-green-700">🟢 LIBRE — Pas de cours en ce moment</p>
+            <p className="text-green-600 text-sm">Inscription possible</p>
+          </div>
+        )}
         {coursEnCours && (
           <div className="border-2 border-red-300 bg-red-50 rounded-xl p-4 mb-4">
-            <p className="font-bold text-red-700">⚠️ Cet élève a cours en ce moment</p>
-            <p className="text-red-600 text-sm">{coursEnCours.matiere} — {coursEnCours.heure_debut}H à {coursEnCours.heure_fin}H</p>
+            <p className="font-bold text-red-700">🔴 EN COURS — {coursEnCours.matiere}</p>
+            <p className="text-red-600 text-sm">{coursEnCours.heure_debut}H à {coursEnCours.heure_fin}H</p>
+            <p className="font-bold text-red-700 mt-2">⛔ Inscription impossible : l'élève a cours en ce moment</p>
             <label className="flex items-center gap-2 mt-3 text-sm font-medium text-gray-700">
               <input type="checkbox" checked={forcerMalgreCours} onChange={e => setForcerMalgreCours(e.target.checked)}
                 className="w-4 h-4 accent-red-600" />
