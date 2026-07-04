@@ -145,7 +145,13 @@ function PageInscription() {
       nb_heures: nbHeures, type_paiement: 'heure', montant: nbHeures * 100, poste,
     })
     if (error) setMessage('❌ Erreur: ' + error.message)
-    else { setMessage('✅ Inscription enregistrée !'); setMatricule(''); setEleve(null); setPoste(''); setCoursEnCours(null); setForcerMalgreCours(false) }
+    else {
+      // Démarrage automatique du poste payé (rétablit le wifi si allumé,
+      // ou déclenche le Wake-on-LAN via le relais local si éteint)
+      await supabase.from('commandes').insert({ poste, action: 'demarrer', message: `Session ${nbHeures}H payée` })
+      await supabase.from('postes').update({ occupe_par: eleve.matricule, minutes_restantes: nbHeures * 60 }).eq('numero', poste)
+      setMessage('✅ Inscription enregistrée !'); setMatricule(''); setEleve(null); setPoste(''); setCoursEnCours(null); setForcerMalgreCours(false)
+    }
   }
   return (
     <div className="max-w-2xl mx-auto">
@@ -790,6 +796,16 @@ function PagePostes() {
     setTimeout(() => setFeedback(''), 3000)
   }
 
+  const envoyerCommandeGroupee = async (action: string, libelle: string) => {
+    if (!confirm(`Confirmer : ${libelle} sur les ${postes.length} postes ?`)) return
+    const { supabase } = await import('../lib/supabase')
+    const lignes = postes.map(p => ({ poste: p.numero, action }))
+    const { error } = await supabase.from('commandes').insert(lignes)
+    if (error) { setFeedback('❌ Erreur: ' + error.message); return }
+    setFeedback(`✅ Commande "${action}" envoyée à tous les postes (${postes.length})`)
+    setTimeout(() => setFeedback(''), 4000)
+  }
+
   const estEnLigne = (p: any) => {
     if (!p.derniere_vue) return false
     const diffSec = (Date.now() - new Date(p.derniere_vue).getTime()) / 1000
@@ -800,12 +816,20 @@ function PagePostes() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow p-4 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow p-4 flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-red-700">🖥️ Contrôle des Postes ({postes.length})</h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
             🟢 {postes.filter(estEnLigne).length} en ligne · 🔴 {postes.filter(p => !estEnLigne(p)).length} hors ligne
           </span>
+          <button onClick={() => envoyerCommandeGroupee('demarrer', 'Allumer tous les postes')}
+            className="bg-green-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-green-700">
+            ☀️ Tout allumer (ouverture)
+          </button>
+          <button onClick={() => envoyerCommandeGroupee('eteindre', 'Éteindre tous les postes')}
+            className="bg-gray-800 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-900">
+            🌙 Tout éteindre (fermeture)
+          </button>
         </div>
       </div>
 
