@@ -668,13 +668,13 @@ function PageEmploi() {
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow p-4">
             <h2 className="text-lg font-bold text-red-700 mb-3">📅 Emploi du Temps — Consultation</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <input type="text" placeholder="Saisir le matricule de l'élève..."
                 value={matricule} onChange={e => setMatricule(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && chercherEleve()}
-                className="flex-1 border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
+                className="flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
               <button onClick={chercherEleve} disabled={loadingEleve}
-                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                className="shrink-0 whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50">
                 {loadingEleve ? '...' : '🔍 Chercher'}
               </button>
             </div>
