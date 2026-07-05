@@ -429,6 +429,8 @@ function PageAbonnements() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [abonnements, setAbonnements] = useState<any[]>([])
+  const [coursEnCours, setCoursEnCours] = useState<any>(null)
+  const [forcerMalgreCours, setForcerMalgreCours] = useState(false)
   const moisActuel = new Date().toLocaleString('fr-FR', { month: 'long' })
   const anneeActuelle = new Date().getFullYear()
   const chargerAbonnements = async () => {
@@ -437,19 +439,32 @@ function PageAbonnements() {
     setAbonnements(data || [])
   }
   useEffect(() => { chargerAbonnements() }, [])
+  const verifierEmploiDuTemps = async (classe: string) => {
+    setCoursEnCours(null)
+    setForcerMalgreCours(false)
+    const { supabase } = await import('../lib/supabase')
+    const jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+    const jourActuel = jours[new Date().getDay()]
+    const heureActuelle = String(new Date().getHours()).padStart(2, '0')
+    const { data } = await supabase.from('emploi_temps').select('*')
+      .eq('classe', classe).eq('jour', jourActuel)
+      .lte('heure_debut', heureActuelle).gt('heure_fin', heureActuelle)
+    if (data && data.length > 0) setCoursEnCours(data[0])
+  }
   const chercherEleve = async () => {
     if (!matricule.trim()) return
-    setLoading(true); setEleve(null); setMessage('')
+    setLoading(true); setEleve(null); setMessage(''); setCoursEnCours(null); setForcerMalgreCours(false)
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_WEBSCHOOL_API}/api/eleves/recherche?q=${matricule}`)
       const data = await res.json()
-      if (data.length > 0) setEleve(data[0])
+      if (data.length > 0) { setEleve(data[0]); await verifierEmploiDuTemps(data[0].classe) }
       else setMessage('❌ Élève non trouvé')
     } catch { setMessage('❌ Erreur de connexion') }
     setLoading(false)
   }
   const enregistrerAbonnement = async () => {
     if (!eleve) return
+    if (coursEnCours && !forcerMalgreCours) { setMessage('⚠️ Confirmez que vous autorisez malgré le cours en cours'); return }
     const { supabase } = await import('../lib/supabase')
     const { error } = await supabase.from('abonnements').insert({
       matricule: eleve.matricule, nom: eleve.nom, prenom: eleve.prenom,
@@ -458,23 +473,24 @@ function PageAbonnements() {
       date_paiement: new Date().toISOString().split('T')[0],
     })
     if (error) setMessage('❌ Erreur: ' + error.message)
-    else { setMessage('✅ Abonnement enregistré !'); setMatricule(''); setEleve(null); chargerAbonnements() }
+    else { setMessage('✅ Abonnement enregistré !'); setMatricule(''); setEleve(null); setCoursEnCours(null); chargerAbonnements() }
   }
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto">
         <h2 className="text-xl font-bold text-red-700 mb-2">🎫 Abonnement Mensuel — 2 000 FCFA</h2>
         <p className="text-gray-500 mb-4">Mois : <strong>{moisActuel} {anneeActuelle}</strong></p>
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <input type="text" placeholder="Saisir le matricule..." value={matricule}
             onChange={e => setMatricule(e.target.value)} onKeyDown={e => e.key === 'Enter' && chercherEleve()}
-            className="flex-1 border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
-          <button onClick={chercherEleve} disabled={loading} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">
+            className="flex-1 min-w-[140px] border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-red-400 outline-none" />
+          <button onClick={chercherEleve} disabled={loading}
+            className="shrink-0 whitespace-nowrap bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50">
             {loading ? '...' : '🔍 Chercher'}
           </button>
         </div>
         {eleve && (
-          <div className="border-2 border-green-200 bg-green-50 rounded-xl p-4 mb-4 flex items-center justify-between">
+          <div className="border-2 border-green-200 bg-green-50 rounded-xl p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-4">
               {eleve.photo_url && <img src={eleve.photo_url} alt="" className="w-12 h-16 object-cover rounded-lg" />}
               <div>
@@ -482,9 +498,34 @@ function PageAbonnements() {
                 <p className="text-gray-600 text-sm">Classe : {eleve.classe}</p>
               </div>
             </div>
-            <button onClick={enregistrerAbonnement} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold">
-              ✅ Abonner — 2 000 FCFA
-            </button>
+            {!coursEnCours && (
+              <button onClick={enregistrerAbonnement} className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold">
+                ✅ Abonner — 2 000 FCFA
+              </button>
+            )}
+          </div>
+        )}
+        {eleve && !coursEnCours && (
+          <div className="border-2 border-green-300 bg-green-50 rounded-xl p-4 mb-4">
+            <p className="font-bold text-green-700">🟢 LIBRE — Pas de cours en ce moment</p>
+            <p className="text-green-600 text-sm">Abonnement possible</p>
+          </div>
+        )}
+        {coursEnCours && (
+          <div className="border-2 border-red-300 bg-red-50 rounded-xl p-4 mb-4">
+            <p className="font-bold text-red-700">🔴 EN COURS — {coursEnCours.matiere}</p>
+            <p className="text-red-600 text-sm">{coursEnCours.heure_debut}H à {coursEnCours.heure_fin}H</p>
+            <p className="font-bold text-red-700 mt-2">⛔ Abonnement impossible : l'élève a cours en ce moment</p>
+            <label className="flex items-center gap-2 mt-3 text-sm font-medium text-gray-700">
+              <input type="checkbox" checked={forcerMalgreCours} onChange={e => setForcerMalgreCours(e.target.checked)}
+                className="w-4 h-4 accent-red-600" />
+              Autoriser quand même (justification vérifiée par l'admin)
+            </label>
+            {forcerMalgreCours && (
+              <button onClick={enregistrerAbonnement} className="mt-3 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-bold">
+                ✅ Abonner quand même — 2 000 FCFA
+              </button>
+            )}
           </div>
         )}
         {message && <div className="p-3 bg-gray-100 rounded-lg text-center font-medium">{message}</div>}
